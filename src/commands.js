@@ -32,9 +32,16 @@ function isGroupAdmin(metadata, jid) {
 
 function quotedImage(message) {
   const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-  if (!quoted) return null;
-  if (quoted.imageMessage) return { message: { imageMessage: quoted.imageMessage } };
-  return null;
+  if (!quoted?.imageMessage) return null;
+  const context = message.message.extendedTextMessage.contextInfo;
+  return {
+    key: {
+      remoteJid: message.key.remoteJid,
+      id: context.stanzaId,
+      participant: context.participant
+    },
+    message: quoted
+  };
 }
 
 export async function handleMessage(sock, message) {
