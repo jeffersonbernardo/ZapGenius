@@ -3,21 +3,6 @@ const ADULT_DOMAINS = [
   'xhamster.com', 'youporn.com', 'onlyfans.com'
 ];
 
-const HATE_PATTERNS = [
-  /\bvolta\s+para\s+a\s+senzala\b/i,
-  /\b(?:tem\s+que|deveria)\s+(?:matar|exterminar|eliminar)\s+(?:todos?\s+)?(?:os?\s+)?(?:negros?|judeus?|indigenas?|gays?|pessoas\s+trans)\b/i,
-  /\b(?:negros?|judeus?|indigenas?|gays?|pessoas\s+trans)\s+(?:nao\s+deveriam|nao\s+merecem)\s+(?:viver|existir|ter\s+direitos?)\b/i,
-  /\b(?:raca\s+inferior|limpeza\s+racial|supremacia\s+racial)\b/i,
-  /\b(?:macaco|primata)\b.{0,35}\b(?:negro|preto|negra)\b/i,
-  /\b(?:negro|preto|negra)\b.{0,35}\b(?:macaco|primata)\b/i
-];
-
-const PORN_PATTERNS = [
-  /\b(?:porno|porno\s+explicito|video\s+sexual\s+explicito|sexo\s+explicito)\b/i,
-  /\b(?:pack\s+de\s+nudes?|vazou\s+nudes?|nudes?\s+explicitos?)\b/i,
-  /\b(?:conteudo\s+adulto|site\s+adulto|video\s+pornografico)\b/i
-];
-
 function getMessageText(message) {
   const m = message.message || {};
   return m.conversation
@@ -34,13 +19,29 @@ function normalize(value) {
 
 function getReason(text, ownInviteCode) {
   const normalized = normalize(text);
+
+  // Só identifica convites reais do WhatsApp; não bloqueia mensagens que apenas mencionem o assunto.
   const inviteLinks = [...normalized.matchAll(/(?:https?:\/\/)?chat\.whatsapp\.com\/([a-z0-9]+)/gi)];
   if (inviteLinks.some(match => match[1] !== (ownInviteCode || '').toLowerCase())) {
     return 'link de convite de outro grupo';
   }
-  if (ADULT_DOMAINS.some(domain => normalized.includes(domain))) return 'link de conteúdo adulto';
-  if (PORN_PATTERNS.some(pattern => pattern.test(normalized))) return 'conteúdo pornográfico explícito';
-  if (HATE_PATTERNS.some(pattern => pattern.test(normalized))) return 'discurso de ódio ou discriminação';
+
+  // Só bloqueia domínios adultos quando aparecem como URL, não quando são citados em uma conversa.
+  const urls = normalized.match(/(?:https?:\/\/|www\.)[^\s<>()]+/gi) || [];
+  for (const rawUrl of urls) {
+    try {
+      const parsed = new URL(rawUrl.startsWith('www.') ? 'https://' + rawUrl : rawUrl);
+      const hostname = parsed.hostname.replace(/^www\./, '');
+      if (ADULT_DOMAINS.some(domain => hostname === domain || hostname.endsWith('.' + domain))) {
+        return 'link para site de conteúdo adulto';
+      }
+    } catch {
+      // Ignora endereços incompletos ou inválidos.
+    }
+  }
+
+  // Texto sobre ódio ou pornografia não é apagado automaticamente:
+  // a detecção por palavras isoladas pode confundir denúncias, notícias e conversas normais.
   return null;
 }
 
