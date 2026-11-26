@@ -1,6 +1,7 @@
 import { config } from './config.js';
 import { askAI } from './ai.js';
 import { makeImageSticker } from './stickers.js';
+import { moderateGroupMessage } from './moderation.js';
 
 const helpText = (prefix) => [
   '*🤖 ZapGenius — comandos*',
@@ -51,6 +52,14 @@ export async function handleMessage(sock, message) {
   const jid = message.key.remoteJid;
   const sender = message.key.participant || message.key.remoteJid;
   const text = getText(message).trim();
+
+  // Moderação local roda antes dos comandos e não envia conteúdo a serviços externos.
+  try {
+    if (await moderateGroupMessage(sock, message)) return;
+  } catch (error) {
+    console.error('Falha na moderação local:', error);
+  }
+
   if (!text.startsWith(config.prefix)) return;
 
   const [rawCommand, ...args] = text.slice(config.prefix.length).trim().split(/\s+/);
