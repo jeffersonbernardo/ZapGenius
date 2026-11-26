@@ -1,0 +1,19 @@
+{
+  "name": "zapgenius",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bot de WhatsApp para figurinhas, comandos inteligentes e administração de grupos.",
+  "engines": { "node": ">=20.0.0" },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "baileys": "7.0.0-rc14",
+    "dotenv": "^16.4.7",
+    "openai": "^5.12.2",
+    "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.34.3"
+  }
+}
