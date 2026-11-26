@@ -12,6 +12,7 @@ const helpText = (prefix) => [
   '',
   '*Administração (somente administradores)*',
   prefix + 'marcar — mencionar participantes do grupo',
+  prefix + 'apagar — apagar para todos uma mensagem respondida',
   '',
   'Em breve: mais ferramentas de moderação e personalização.'
 ].join('\n');
@@ -85,6 +86,45 @@ export async function handleMessage(sock, message) {
       }
       const sticker = await makeImageSticker(image);
       await sock.sendMessage(jid, { sticker }, { quoted: message });
+      return;
+    }
+
+
+    if (command === 'apagar' || command === 'delete') {
+      if (!jid.endsWith('@g.us')) {
+        await sock.sendMessage(jid, { text: 'Esse comando só funciona em grupos.' }, { quoted: message });
+        return;
+      }
+
+      const metadata = await sock.groupMetadata(jid);
+      if (!isGroupAdmin(metadata, sender)) {
+        await sock.sendMessage(jid, { text: 'Somente administradores do grupo podem usar esse comando.' }, { quoted: message });
+        return;
+      }
+
+      const context = message.message?.extendedTextMessage?.contextInfo;
+      if (!context?.stanzaId) {
+        await sock.sendMessage(jid, { text: 'Responda à mensagem que deseja apagar e envie !apagar.' }, { quoted: message });
+        return;
+      }
+
+      const botIds = [sock.user?.id, sock.user?.lid].filter(Boolean).map(id => id.split(':')[0]);
+      const botIsAdmin = metadata.participants.some(p =>
+        botIds.includes((p.id || '').split(':')[0]) &&
+        (p.admin || p.isAdmin || p.isSuperAdmin)
+      );
+      if (!botIsAdmin) {
+        await sock.sendMessage(jid, { text: 'Preciso ser administrador do grupo para apagar mensagens de outros participantes.' }, { quoted: message });
+        return;
+      }
+
+      const targetKey = {
+        remoteJid: jid,
+        id: context.stanzaId,
+        fromMe: false,
+        ...(context.participant ? { participant: context.participant } : {})
+      };
+      await sock.sendMessage(jid, { delete: targetKey });
       return;
     }
 
